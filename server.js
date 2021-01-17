@@ -103,27 +103,7 @@ const reg_audio = multer.diskStorage({
         cb(null, "asset/regAudio")
     },
     filename:(req, file, cb)=>{
-        console.log("multer",file.originalname);
-        switch(file.originalname){
-            case "audio1.wav":
-                cb(null, file.originalname);
-                break;
-            case "audio2.wav":
-                cb(null, file.originalname);
-                break;
-            case "audio3.wav":
-                cb(null, file.originalname);
-                break;
-            case "audio4.wav":
-                cb(null, file.originalname);
-                break;
-            case "audio5.wav":
-                cb(null, file.originalname);
-                break;
-            default :
-                cb(null, "samp.wav");             
-
-        }
+        cb(null, "audio1.wav")
     }
 })
 
@@ -132,15 +112,17 @@ const regAudio = multer({
 })
 
 app.post("/registerAudio", async (req,res) => {
-    let arr = ["audio1.wav","audio2.wav","audio3.wav","audio4.wav","audio5.wav"]
+    let arr = ["audio1.wav"]
     try{
+        // console.log("hellllo", req.body["eid"])
         let curpath = path.join(__dirname,"/asset/regAudio/");
         console.log("Sending to flask")
         let a1 = await SendFiles(arr,curpath,req.body["eid"])
         console.log("Response After HItting Flask :: ",a1);
         // registerDb(req.body["name"],req.body["eid"])
         res.send({
-            status: 200
+            status: 200,
+            msg: a1
         })
     }
     catch(err){
@@ -213,74 +195,13 @@ const reg1Audio = multer({
     storage:reg1_audio,
 })
 
-const reg2_audio = multer.diskStorage({
-    destination:(req, file, cb)=>{
-        cb(null, "asset/regAudio")
-    },
-    filename:(req, file, cb)=>{
-        cb(null, "audio2.wav")
-    }
-})
 
-const reg2Audio = multer({
-    storage:reg2_audio,
-})
-
-const reg3_audio = multer.diskStorage({
-    destination:(req, file, cb)=>{
-        cb(null, "asset/regAudio")
-    },
-    filename:(req, file, cb)=>{
-        cb(null, "audio3.wav")
-    }
-})
-
-const reg3Audio = multer({
-    storage:reg3_audio,
-})
-
-const reg4_audio = multer.diskStorage({
-    destination:(req, file, cb)=>{
-        cb(null, "asset/regAudio")
-    },
-    filename:(req, file, cb)=>{
-        cb(null, "audio4.wav")
-    }
-})
-
-const reg4Audio = multer({
-    storage:reg4_audio,
-})
-
-const reg5_audio = multer.diskStorage({
-    destination:(req, file, cb)=>{
-        cb(null, "asset/regAudio")
-    },
-    filename:(req, file, cb)=>{
-        cb(null, "audio5.wav")
-    }
-})
-
-const reg5Audio = multer({
-    storage:reg5_audio,
-})
 
 app.post('/reg1Audio', reg1Audio.single('audio'),(req, res) => {
     console.log("1 uploaded")
 })
 
-app.post('/reg2Audio', reg2Audio.single('audio'),(req, res) => {
-    console.log("2 uploaded")
-})
-app.post('/reg3Audio', reg3Audio.single('audio'),(req, res) => {
-    console.log("3 uploaded")
-})
-app.post('/reg4Audio', reg4Audio.single('audio'),(req, res) => {
-    console.log("4 uploaded")
-})
-app.post('/reg5Audio', reg5Audio.single('audio'),(req, res) => {
-    console.log("5 uploaded")
-})
+
 //Validating Attendance via Audio ------------------------------------------------------------------
 
 const upload_audio = multer.diskStorage({
@@ -315,15 +236,17 @@ app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
             }
             console.log('Upload successful! ll Server responded with:', body.substring(10,11)==='1');
             if(body.substring(10,11)==='1'){
-                console.log("inside ready to update")
+                console.log(body)
                 // updateDb(req.body["eid"],req.body["timestamp"]);
                 res.send({
-                    valid:true
+                    valid:true,
+                    data:body
                 });
             } else{
                 console.log("Not inside ready to update")
                 res.send({
-                    valid:false
+                    valid:false,
+                    data: null
                 })
             }
         });
@@ -333,6 +256,26 @@ app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
     // }
     
 })
+
+app.post('/removeUser', async (req,res) => {
+    let formData = {
+        speaker: req.body["eid"],
+    };
+    console.log(req.body)
+    request.post({
+        url: 'http://192.168.43.128:5000/removeSpeaker',
+        formData: formData
+    }, function optionalCallback(err, httpResponse, body) {
+        if (err) {
+            return console.error('Request failed:', err);
+        }
+        console.log('Server responded with:', body);
+        res.send({
+          data:body
+        });
+    })
+    return null
+}) 
 
 
 // Validating Attendance via Audio ------------------------------------------------------------------
@@ -466,11 +409,11 @@ app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
 async function SendFiles(arr,curpath,eid){
     let formData = {
     speaker: eid,
-    audio_file1: fs.createReadStream(curpath+arr[0]),
-    audio_file2: fs.createReadStream(curpath+arr[1]),
-    audio_file3: fs.createReadStream(curpath+arr[2]),
-    audio_file4: fs.createReadStream(curpath+arr[3]),
-    audio_file5: fs.createReadStream(curpath+arr[4]),
+    audio_file: fs.createReadStream(curpath+arr[0]),
+    // audio_file2: fs.createReadStream(curpath+arr[1]),
+    // audio_file3: fs.createReadStream(curpath+arr[2]),
+    // audio_file4: fs.createReadStream(curpath+arr[3]),
+    // audio_file5: fs.createReadStream(curpath+arr[4]),
     };
     glo++;
     console.log("SENDING COUNT :: ",glo)
@@ -482,7 +425,9 @@ async function SendFiles(arr,curpath,eid){
         return console.error('upload failed:', err);
     }
     console.log('Upload successful!  Server responded with:', body);
-    return body
+    res.send({
+        data:body
+    });
     })
     return null
 }
