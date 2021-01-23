@@ -12,9 +12,43 @@ const axios = require("axios")
 // mongoose.set('useFindAndModify', false);
 // mongoose.set('useCreateIndex', true);
 // mongoose.set('useUnifiedTopology', true);
+const { IamAuthenticator } = require('ibm-watson/auth');
+const SpeechToTextV1 = require('ibm-watson/speech-to-text/v1');
+const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require('constants');
 
+const speechToText = new SpeechToTextV1({
+  authenticator: new IamAuthenticator({
+    apikey: 'DF5YNiwBRe8qtj7SE2h6DdfSl6tQRLBw5wZug8E_GvsH',
+  }),
+  serviceUrl: 'https://api.eu-gb.speech-to-text.watson.cloud.ibm.com/instances/9d38605c-5d35-440b-938a-386b5c8fde39',
+});
+
+const params = {
+  objectMode: true,
+  audio: fs.createReadStream(path.join(__dirname,"/asset/appAudio/Sample.wav")),
+  contentType: 'audio/wav',
+  model: 'en-US_BroadbandModel',
+  keywords: ['colorado', 'tornado', 'tornadoes'],
+  keywordsThreshold: 0.5,
+  maxAlternatives: 3,
+};
 var glo = 0;
 
+// Create the stream.
+// const recognizeStream = speechToText.recognizeUsingWebSocket(params);
+
+// Listen for events.
+// recognizeStream.on('data', function(event) { onEvent('Data:', event); });
+// recognizeStream.on('error', function(event) { onEvent('Error:', event); });
+// recognizeStream.on('close', function(event) { onEvent('Close:', event); });
+
+// // Display events on the console.
+// function onEvent(name, event) {
+//     stot = JSON.stringify(event["results"])
+//     console.log(JSON.stringify(event["results"]))
+//     // console.log(name, JSON.stringify(event["results"], null, 2));
+//     console.log("hello Data")
+// };
 // Assumption
 // const Location = {  
 //     lat: 12.7515547,
@@ -217,20 +251,55 @@ const uploadAudio = multer({
     storage:upload_audio,
 })
 
+app.post('/apptest', (req, res) => {
+    speechToText.recognize(params)
+  .then(response => {
+    console.log(JSON.stringify(response.result['results'][0]['alternatives'][0]['transcript'], null, 2));
+    res.send({data: response.result['results'][0]['alternatives'][0]['transcript']})
+  })
+  .catch(err => {
+    console.log(err);
+    res.send({error: err})
+  });
+})
+
+compareSentences = (s1, s2) => {
+    l2 = s2.length
+    count = 0
+    s1.forEach(element => {
+        i = 0
+        while(i<l2){
+            if(s2[i] == element){
+                count = count + 1
+                break
+            }  
+        }    
+    });
+    if( abs(l2 - count) < (int)(0.3 * l2))
+      return true
+}
+
 app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
     let curpath = path.join(__dirname,"/asset/appAudio/Sample.wav");
-    console.log(req.body["eid"],curpath," Lat:",req.body["lat"]," Long",req.body["long"]);
+    console.log(req.body["eid"],req.body["sentence"],curpath," Lat:",req.body["lat"]," Long",req.body["long"]);
+    speechToText.recognize(params)
+  .then(response => {
+    sen = JSON.stringify(response.result['results'][0]['alternatives'][0]['transcript'], null, 2);
+    console.log(sen)
+    equi = compareSentences(sen, req.body["sentence"])
+    
     // if(convertToM(Location.lat,Location.long,req.body["lat"],req.body["long"]) <= 500 ){
-        let formData = {
-            speaker: req.body.eid,
-            audio_file: fs.createReadStream(curpath)
-            };
-            glo++;
-            console.log("SENDING COUNT :: ",glo)
-            request.post({
-                url: 'http://192.168.43.128:5000/findSpeaker',
-                formData: formData
-             }, function optionalCallback(err, httpResponse, body) {
+    let formData = {
+        speaker: req.body.eid,
+        audio_file: fs.createReadStream(curpath)
+        };
+    glo++;
+    console.log("SENDING COUNT :: ",glo)
+    if(equi){
+        request.post({
+            url: 'http://192.168.43.128:5000/findSpeaker',
+            formData: formData
+            }, function optionalCallback(err, httpResponse, body) {
             if (err) {
                 return console.error('upload failed:', err);
             }
@@ -250,10 +319,14 @@ app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
                 })
             }
         });
-
-    // } else{
-    //     res.send({valid:false})
-    // }
+    }
+    else{
+        console.log("Speech to text no match")
+        res.send({
+            valid:false,
+            data: null
+        })
+    }
     
 })
 
