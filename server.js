@@ -5,6 +5,7 @@ const request = require("request")
 let FormData = require('form-data');
 let bodyParser = require('body-parser')
 let multer = require('multer')
+ip = 'http://10.116.239.164:5000/'
 // const User = require('./schema')
 const axios = require("axios")
 // const mongoose = require('mongoose')
@@ -150,14 +151,36 @@ app.post("/registerAudio", async (req,res) => {
     try{
         // console.log("hellllo", req.body["eid"])
         let curpath = path.join(__dirname,"/asset/regAudio/");
-        console.log("Sending to flask")
-        let a1 = await SendFiles(arr,curpath,req.body["eid"])
-        console.log("Response After HItting Flask :: ",a1);
-        // registerDb(req.body["name"],req.body["eid"])
-        res.send({
-            status: 200,
-            msg: a1
-        })
+        console.log(req.body)
+        eid = req.body["eid"]
+        // let a1 = await SendFiles(arr,curpath,req.body["eid"])
+        obj = {}
+    let formData = {
+    speaker: eid,
+    audio_file: fs.createReadStream(curpath+arr[0]),
+    audio_text: req.body["sentence"]
+    };
+    glo++;
+    console.log(eid)
+    console.log("SENDING COUNT :: ",glo)
+    request.post({
+        url: ip + 'addSpeaker',
+        formData: formData
+     }, function optionalCallback(err, httpResponse, body) {
+    if (err) {
+        return console.error('upload failed:', err);
+    }
+    console.log('Upload successful!  Server responded with:');
+    obj = JSON.parse(body)
+    console.log(obj.result)
+    console.log("Response After HItting Flask :: ",obj.result);
+    // registerDb(req.body["name"],req.body["eid"])
+    res.send({
+        status: 200,
+        msg: obj.result
+    })
+    })
+       
     }
     catch(err){
         console.log(err)
@@ -264,6 +287,8 @@ app.post('/apptest', (req, res) => {
 })
 
 compareSentences = (s1, s2) => {
+    s1 = s1.toLowerCase()
+    s2 = s2.toLowerCase()
     l2 = s2.length
     count = 0
     s1.forEach(element => {
@@ -282,52 +307,60 @@ compareSentences = (s1, s2) => {
 app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
     let curpath = path.join(__dirname,"/asset/appAudio/Sample.wav");
     console.log(req.body["eid"],req.body["sentence"],curpath," Lat:",req.body["lat"]," Long",req.body["long"]);
-    speechToText.recognize(params)
-  .then(response => {
-    sen = JSON.stringify(response.result['results'][0]['alternatives'][0]['transcript'], null, 2);
-    console.log(sen)
-    equi = compareSentences(sen, req.body["sentence"])
+//     speechToText.recognize(params)
+//   .then(response => {
+//     sen = JSON.stringify(response.result['results'][0]['alternatives'][0]['transcript'], null, 2);
+//     console.log(sen)
+    // equi = compareSentences(sen, req.body["sentence"])
     
     // if(convertToM(Location.lat,Location.long,req.body["lat"],req.body["long"]) <= 500 ){
     let formData = {
-        speaker: req.body.eid,
-        audio_file: fs.createReadStream(curpath)
+        // speaker: req.body.eid,
+        audio_file: fs.createReadStream(curpath),
+        audio_text: req.body["sentence"]
         };
     glo++;
     console.log("SENDING COUNT :: ",glo)
-    if(equi){
+    // if(equi){
+        console.log("Text match successful")
         request.post({
-            url: 'http://192.168.43.128:5000/findSpeaker',
+            url:  ip + 'findSpeaker',
             formData: formData
             }, function optionalCallback(err, httpResponse, body) {
             if (err) {
                 return console.error('upload failed:', err);
             }
-            console.log('Upload successful! ll Server responded with:', body.substring(10,11)==='1');
-            if(body.substring(10,11)==='1'){
-                console.log(body)
+            console.log('Upload successful! ll Server responded with:');
+            obj = JSON.parse(body)
+            // if(body.substring(10,11)==='1'){
+                console.log(obj.text)
+                console.log(obj.speaker)
+                obj2 = {}
+                obj2.text = obj.text
+                obj2.speaker = obj.speaker
                 // updateDb(req.body["eid"],req.body["timestamp"]);
                 res.send({
                     valid:true,
-                    data:body
+                    data: obj2
                 });
-            } else{
-                console.log("Not inside ready to update")
-                res.send({
-                    valid:false,
-                    data: null
-                })
-            }
+            // } else{
+            //     console.log("Not inside ready to update")
+            //     res.send({
+            //         valid:false,
+            //         data: null
+            //     })
+            // }
         });
-    }
-    else{
-        console.log("Speech to text no match")
-        res.send({
-            valid:false,
-            data: null
-        })
-    }
+    // }
+    // else{
+    //     console.log("Speech to text no match")
+    //     res.send({
+    //         valid:false,
+    //         data: null
+    //     })
+    // }
     
+// })
 })
 
 app.post('/removeUser', async (req,res) => {
@@ -336,15 +369,16 @@ app.post('/removeUser', async (req,res) => {
     };
     console.log(req.body)
     request.post({
-        url: 'http://192.168.43.128:5000/removeSpeaker',
+        url: ip + 'removeSpeaker',
         formData: formData
     }, function optionalCallback(err, httpResponse, body) {
         if (err) {
             return console.error('Request failed:', err);
         }
         console.log('Server responded with:', body);
+        obj = JSON.parse(body)
         res.send({
-          data:body
+          data:obj.result
         });
     })
     return null
@@ -480,29 +514,8 @@ app.post('/removeUser', async (req,res) => {
 // 
 
 async function SendFiles(arr,curpath,eid){
-    let formData = {
-    speaker: eid,
-    audio_file: fs.createReadStream(curpath+arr[0]),
-    // audio_file2: fs.createReadStream(curpath+arr[1]),
-    // audio_file3: fs.createReadStream(curpath+arr[2]),
-    // audio_file4: fs.createReadStream(curpath+arr[3]),
-    // audio_file5: fs.createReadStream(curpath+arr[4]),
-    };
-    glo++;
-    console.log("SENDING COUNT :: ",glo)
-    request.post({
-        url: 'http://192.168.43.128:5000/addSpeaker',
-        formData: formData
-     }, function optionalCallback(err, httpResponse, body) {
-    if (err) {
-        return console.error('upload failed:', err);
-    }
-    console.log('Upload successful!  Server responded with:', body);
-    res.send({
-        data:body
-    });
-    })
-    return null
+    
+    return obj.result;
 }
 
 // function convertToM(lat, long, lat1, long1) { 
