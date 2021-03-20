@@ -5,7 +5,7 @@ const request = require("request")
 let FormData = require('form-data');
 let bodyParser = require('body-parser')
 let multer = require('multer')
-ip = 'http://10.116.239.164:5000/'
+ip = 'http://192.168.1.7:5000/'
 // const User = require('./schema')
 const axios = require("axios")
 // const mongoose = require('mongoose')
@@ -158,7 +158,9 @@ app.post("/registerAudio", async (req,res) => {
     let formData = {
     speaker: eid,
     audio_file: fs.createReadStream(curpath+arr[0]),
-    audio_text: req.body["sentence"]
+    audio_text: req.body["sentence"],
+    // audio_text: "check back tomorrow I will see if the book has arrived",
+    dependent: req.body['dependent']
     };
     glo++;
     console.log(eid)
@@ -256,8 +258,8 @@ const reg1Audio = multer({
 
 app.post('/reg1Audio', reg1Audio.single('audio'),(req, res) => {
     console.log("1 uploaded")
+    res.send({data: "Uploaded"})
 })
-
 
 //Validating Attendance via Audio ------------------------------------------------------------------
 
@@ -306,7 +308,7 @@ compareSentences = (s1, s2) => {
 
 app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
     let curpath = path.join(__dirname,"/asset/appAudio/Sample.wav");
-    console.log(req.body["eid"],req.body["sentence"],curpath," Lat:",req.body["lat"]," Long",req.body["long"]);
+    console.log(req.body["eid"],req.body["sentence"],curpath,"Dependency: ", req.body['dependent']);
 //     speechToText.recognize(params)
 //   .then(response => {
 //     sen = JSON.stringify(response.result['results'][0]['alternatives'][0]['transcript'], null, 2);
@@ -317,12 +319,14 @@ app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
     let formData = {
         // speaker: req.body.eid,
         audio_file: fs.createReadStream(curpath),
-        audio_text: req.body["sentence"]
+        audio_text: req.body["sentence"],
+        // audio_text: "their argument could be heard across the parking lot",
+        dependent: req.body['dependent']
         };
     glo++;
     console.log("SENDING COUNT :: ",glo)
     // if(equi){
-        console.log("Text match successful")
+        // console.log("Text match successful")
         request.post({
             url:  ip + 'findSpeaker',
             formData: formData
@@ -340,7 +344,6 @@ app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
                 obj2.speaker = obj.speaker
                 // updateDb(req.body["eid"],req.body["timestamp"]);
                 res.send({
-                    valid:true,
                     data: obj2
                 });
             // } else{
@@ -361,7 +364,8 @@ app.post('/appAudio', uploadAudio.single('audio'),(req, res) => {
     // }
     
 // })
-})
+// }
+    })
 
 app.post('/removeUser', async (req,res) => {
     let formData = {
